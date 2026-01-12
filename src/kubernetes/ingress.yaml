@@ -11,8 +11,7 @@ spec:
     - host: cinemaabyss.example.com
       http:
         paths:
-          #дополните конфигурацию для /
-          ...
+          # Events service - для прямого тестирования создания событий
           - path: /api/events
             pathType: Prefix
             backend:
@@ -20,3 +19,19 @@ spec:
                 name: events-service
                 port:
                   number: 8082
+          # Proxy service (API Gateway) - основной маршрут для всех остальных API
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: proxy-service
+                port:
+                  number: 80
+          # Health checks и корневой путь
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: proxy-service
+                port:
+                  number: 80

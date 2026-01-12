@@ -36,6 +36,54 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Extract metadata for monolith
+        id: meta-monolith
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}/monolith
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push monolith image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./src/monolith
+          file: ./src/monolith/Dockerfile
+          push: true
+          tags: ${{ steps.meta-monolith.outputs.tags }}
+          labels: ${{ steps.meta-monolith.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Extract metadata for movies-service
+        id: meta-movies
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}/movies-service
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push movies-service image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./src/microservices/movies
+          file: ./src/microservices/movies/Dockerfile
+          push: true
+          tags: ${{ steps.meta-movies.outputs.tags }}
+          labels: ${{ steps.meta-movies.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
       - name: Extract metadata for proxy-service
         id: meta-proxy
         uses: docker/metadata-action@v4
