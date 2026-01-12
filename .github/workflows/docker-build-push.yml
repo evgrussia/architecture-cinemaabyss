@@ -1,21 +1,19 @@
-name: Docker Build and Push
+name: Build and Push Docker Images
 
 on:
-  workflow_dispatch:
   push:
     branches: [ main ]
     paths:
-      - 'src/**'
+      - 'src/microservices/proxy/**'
+      - 'src/microservices/events/**'
+      - 'src/monolith/**'
+      - 'src/microservices/movies/**'
       - '.github/workflows/docker-build-push.yml'
   release:
     types: [published]
 
 env:
   REGISTRY: ghcr.io
-  MONOLITH_IMAGE_NAME: ${{ github.repository }}/monolith
-  MOVIES_SERVICE_IMAGE_NAME: ${{ github.repository }}/movies-service
-  EVENTS_SERVICE_IMAGE_NAME: ${{ github.repository }}/events-service
-  PROXY_SERVICE_IMAGE_NAME: ${{ github.repository }}/proxy-service
 
 jobs:
   build-and-push:
@@ -38,48 +36,98 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Extract metadata (tags, labels) for Monolith
-        id: meta-monolith
+      - name: Extract metadata for proxy-service
+        id: meta-proxy
         uses: docker/metadata-action@v4
         with:
-          images: ${{ env.REGISTRY }}/${{ env.MONOLITH_IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ github.repository }}/proxy-service
           tags: |
+            type=ref,event=branch
+            type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=sha,format=short
-            type=ref,event=branch
-            latest
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push Monolith Docker image
+      - name: Build and push proxy-service image
         uses: docker/build-push-action@v4
         with:
-          context: ./src/monolith
+          context: ./src/microservices/proxy
+          file: ./src/microservices/proxy/Dockerfile
           push: true
-          tags: ${{ steps.meta-monolith.outputs.tags }}
-          labels: ${{ steps.meta-monolith.outputs.labels }}
+          tags: ${{ steps.meta-proxy.outputs.tags }}
+          labels: ${{ steps.meta-proxy.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Extract metadata (tags, labels) for Movies Service
-        id: meta-movies
+      - name: Extract metadata for events-service
+        id: meta-events
         uses: docker/metadata-action@v4
         with:
-          images: ${{ env.REGISTRY }}/${{ env.MOVIES_SERVICE_IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ github.repository }}/events-service
           tags: |
+            type=ref,event=branch
+            type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=sha,format=short
-            type=ref,event=branch
-            latest
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push Movies Service Docker image
+      - name: Build and push events-service image
         uses: docker/build-push-action@v4
         with:
-          context: ./src/microservices/movies
+          context: ./src/microservices/events
+          file: ./src/microservices/events/Dockerfile
           push: true
-          tags: ${{ steps.meta-movies.outputs.tags }}
-          labels: ${{ steps.meta-movies.outputs.labels }}
+          tags: ${{ steps.meta-events.outputs.tags }}
+          labels: ${{ steps.meta-events.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      
+      - name: Start services with Docker Compose
+        run: |
+          docker-compose up -d postgres zookeeper kafka monolith movies-service events-service proxy-service
+          echo "Waiting for services to be ready..."
+          sleep 30
+          docker-compose ps
+
+      - name: Wait for services to be healthy
+        run: |
+          timeout=300
+          elapsed=0
+          while [ $elapsed -lt $timeout ]; do
+            if curl -f http://localhost:8000/api/movies 2>/dev/null || curl -f http://localhost:8080/api/movies 2>/dev/null; then
+              echo "Services are ready!"
+              break
+            fi
+            echo "Waiting for services... ($elapsed/$timeout seconds)"
+            sleep 5
+            elapsed=$((elapsed + 5))
+          done
+          
+          # Final health check
+          echo "Checking service health..."
+          curl -f http://localhost:8000/api/movies || echo "Proxy service not responding"
+          curl -f http://localhost:8080/api/movies || echo "Monolith not responding"
+
+      - name: Run API tests
+        working-directory: ./tests/postman
+        run: |
+          npm install
+          npm run test:docker
+
+      - name: Show test results
+        if: always()
+        run: |
+          echo "Test execution completed"
+          echo "=== Proxy Service Logs ==="
+          docker-compose logs proxy-service --tail=50 || true
+          echo "=== Events Service Logs ==="
+          docker-compose logs events-service --tail=50 || true
+          echo "=== All Services Status ==="
+          docker-compose ps
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker-compose down -v
