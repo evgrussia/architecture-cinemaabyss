@@ -174,8 +174,15 @@ jobs:
           docker manifest inspect ${{ env.REGISTRY }}/${{ github.repository }}/proxy-service:latest && echo "✓ proxy-service:latest exists" || echo "✗ proxy-service:latest not found"
           docker manifest inspect ${{ env.REGISTRY }}/${{ github.repository }}/events-service:latest && echo "✓ events-service:latest exists" || echo "✗ events-service:latest not found"
           echo ""
-          echo "=== GitHub Packages URL ==="
-          echo "Check images at: https://github.com/${{ github.repository }}/pkgs/container"
+          echo "=== GitHub Packages URLs ==="
+          echo "Check packages in your profile: https://github.com/${{ github.actor }}?tab=packages"
+          echo "Or check repository packages: https://github.com/${{ github.repository }}/pkgs/container"
+          echo ""
+          echo "=== Direct package links ==="
+          echo "https://github.com/${{ github.repository_owner }}/architecture-cinemaabyss/pkgs/container/monolith"
+          echo "https://github.com/${{ github.repository_owner }}/architecture-cinemaabyss/pkgs/container/movies-service"
+          echo "https://github.com/${{ github.repository_owner }}/architecture-cinemaabyss/pkgs/container/proxy-service"
+          echo "https://github.com/${{ github.repository_owner }}/architecture-cinemaabyss/pkgs/container/events-service"
 
       - name: Start infrastructure services
         run: |
