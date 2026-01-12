@@ -148,6 +148,13 @@ jobs:
           echo "  ${{ env.REGISTRY }}/${{ github.repository }}/movies-service:latest"
           echo "  ${{ env.REGISTRY }}/${{ github.repository }}/proxy-service:latest"
           echo "  ${{ env.REGISTRY }}/${{ github.repository }}/events-service:latest"
+          echo ""
+          echo "=== Verifying images are accessible ==="
+          # Verify that images were pushed successfully
+          docker pull ${{ env.REGISTRY }}/${{ github.repository }}/monolith:latest || echo "WARNING: Could not pull monolith:latest"
+          docker pull ${{ env.REGISTRY }}/${{ github.repository }}/movies-service:latest || echo "WARNING: Could not pull movies-service:latest"
+          docker pull ${{ env.REGISTRY }}/${{ github.repository }}/proxy-service:latest || echo "WARNING: Could not pull proxy-service:latest"
+          docker pull ${{ env.REGISTRY }}/${{ github.repository }}/events-service:latest || echo "WARNING: Could not pull events-service:latest"
 
       - name: Start infrastructure services
         run: |
