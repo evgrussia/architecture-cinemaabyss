@@ -35,6 +35,17 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Debug registry info
+        run: |
+          echo "=== Registry Debug Info ==="
+          echo "Registry: ${{ env.REGISTRY }}"
+          echo "Repository: ${{ github.repository }}"
+          echo "Actor: ${{ github.actor }}"
+          echo "Full image path example: ${{ env.REGISTRY }}/${{ github.repository }}/monolith:latest"
+          echo ""
+          echo "Expected GitHub Packages URL:"
+          echo "https://github.com/${{ github.repository }}/pkgs/container"
 
       - name: Extract metadata for monolith
         id: meta-monolith
@@ -59,6 +70,7 @@ jobs:
           labels: ${{ steps.meta-monolith.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+        continue-on-error: false
 
       - name: Extract metadata for movies-service
         id: meta-movies
@@ -83,6 +95,7 @@ jobs:
           labels: ${{ steps.meta-movies.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+        continue-on-error: false
 
       - name: Extract metadata for proxy-service
         id: meta-proxy
@@ -107,6 +120,7 @@ jobs:
           labels: ${{ steps.meta-proxy.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+        continue-on-error: false
 
       - name: Extract metadata for events-service
         id: meta-events
@@ -131,30 +145,37 @@ jobs:
           labels: ${{ steps.meta-events.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+        continue-on-error: false
 
-      - name: List pushed images
+      - name: Verify push success and list images
         run: |
-          echo "=== Pushed Images ==="
-          echo "Monolith: ${{ steps.meta-monolith.outputs.tags }}"
-          echo "Movies Service: ${{ steps.meta-movies.outputs.tags }}"
-          echo "Proxy Service: ${{ steps.meta-proxy.outputs.tags }}"
-          echo "Events Service: ${{ steps.meta-events.outputs.tags }}"
-          echo ""
+          echo "=== Repository Information ==="
           echo "Repository: ${{ github.repository }}"
           echo "Registry: ${{ env.REGISTRY }}"
+          echo "Actor: ${{ github.actor }}"
           echo ""
-          echo "Image paths should be:"
+          echo "=== Expected Image Paths ==="
           echo "  ${{ env.REGISTRY }}/${{ github.repository }}/monolith:latest"
           echo "  ${{ env.REGISTRY }}/${{ github.repository }}/movies-service:latest"
           echo "  ${{ env.REGISTRY }}/${{ github.repository }}/proxy-service:latest"
           echo "  ${{ env.REGISTRY }}/${{ github.repository }}/events-service:latest"
           echo ""
-          echo "=== Verifying images are accessible ==="
-          # Verify that images were pushed successfully
-          docker pull ${{ env.REGISTRY }}/${{ github.repository }}/monolith:latest || echo "WARNING: Could not pull monolith:latest"
-          docker pull ${{ env.REGISTRY }}/${{ github.repository }}/movies-service:latest || echo "WARNING: Could not pull movies-service:latest"
-          docker pull ${{ env.REGISTRY }}/${{ github.repository }}/proxy-service:latest || echo "WARNING: Could not pull proxy-service:latest"
-          docker pull ${{ env.REGISTRY }}/${{ github.repository }}/events-service:latest || echo "WARNING: Could not pull events-service:latest"
+          echo "=== Generated Tags ==="
+          echo "Monolith tags: ${{ steps.meta-monolith.outputs.tags }}"
+          echo "Movies Service tags: ${{ steps.meta-movies.outputs.tags }}"
+          echo "Proxy Service tags: ${{ steps.meta-proxy.outputs.tags }}"
+          echo "Events Service tags: ${{ steps.meta-events.outputs.tags }}"
+          echo ""
+          echo "=== Verifying images in registry ==="
+          echo "Checking if images are accessible..."
+          # Try to inspect images to verify they exist
+          docker manifest inspect ${{ env.REGISTRY }}/${{ github.repository }}/monolith:latest && echo "✓ monolith:latest exists" || echo "✗ monolith:latest not found"
+          docker manifest inspect ${{ env.REGISTRY }}/${{ github.repository }}/movies-service:latest && echo "✓ movies-service:latest exists" || echo "✗ movies-service:latest not found"
+          docker manifest inspect ${{ env.REGISTRY }}/${{ github.repository }}/proxy-service:latest && echo "✓ proxy-service:latest exists" || echo "✗ proxy-service:latest not found"
+          docker manifest inspect ${{ env.REGISTRY }}/${{ github.repository }}/events-service:latest && echo "✓ events-service:latest exists" || echo "✗ events-service:latest not found"
+          echo ""
+          echo "=== GitHub Packages URL ==="
+          echo "Check images at: https://github.com/${{ github.repository }}/pkgs/container"
 
       - name: Start infrastructure services
         run: |
