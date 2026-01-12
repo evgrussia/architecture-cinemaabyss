@@ -114,7 +114,9 @@ jobs:
         working-directory: ./tests/postman
         run: |
           npm install
-          npm run test:docker
+          # Use local environment (localhost) instead of docker environment (hostnames)
+          # since we're running tests from GitHub Actions runner, not from inside Docker network
+          npm run test:local
 
       - name: Show test results
         if: always()
