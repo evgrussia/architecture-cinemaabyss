@@ -100,6 +100,21 @@ spec:
     app: kafka
 ---
 apiVersion: v1
+kind: Service
+metadata:
+  name: kafka-headless
+  namespace: cinemaabyss
+  labels:
+    app: kafka
+spec:
+  clusterIP: None
+  ports:
+  - port: 9092
+    name: kafka
+  selector:
+    app: kafka
+---
+apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
   name: kafka-data
@@ -117,7 +132,7 @@ metadata:
   name: kafka
   namespace: cinemaabyss
 spec:
-  serviceName: kafka
+  serviceName: kafka-headless
   replicas: 1
   selector:
     matchLabels:
@@ -142,7 +157,7 @@ spec:
             cpu: "1000m"
         env:
         - name: KAFKA_ADVERTISED_LISTENERS
-          value: PLAINTEXT://kafka:9092
+          value: PLAINTEXT://kafka-0.kafka-headless.cinemaabyss.svc.cluster.local:9092
         - name: KAFKA_LISTENERS
           value: PLAINTEXT://0.0.0.0:9092
         - name: KAFKA_PORT
