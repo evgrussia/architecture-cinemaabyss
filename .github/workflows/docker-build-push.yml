@@ -86,10 +86,10 @@ jobs:
 
       - name: Start services with Docker Compose
         run: |
-          docker-compose up -d postgres zookeeper kafka monolith movies-service events-service proxy-service
+          docker compose up -d postgres zookeeper kafka monolith movies-service events-service proxy-service
           echo "Waiting for services to be ready..."
           sleep 30
-          docker-compose ps
+          docker compose ps
 
       - name: Wait for services to be healthy
         run: |
@@ -121,13 +121,13 @@ jobs:
         run: |
           echo "Test execution completed"
           echo "=== Proxy Service Logs ==="
-          docker-compose logs proxy-service --tail=50 || true
+          docker compose logs proxy-service --tail=50 || true
           echo "=== Events Service Logs ==="
-          docker-compose logs events-service --tail=50 || true
+          docker compose logs events-service --tail=50 || true
           echo "=== All Services Status ==="
-          docker-compose ps
+          docker compose ps
 
       - name: Cleanup
         if: always()
         run: |
-          docker-compose down -v
+          docker compose down -v
