@@ -358,6 +358,9 @@ https://cinemaabyss.example.com/api/movies
 ![new_helm_2.png](new_helm_2.png)
 ![new_helm_3.png](new_helm_3.png)
 
+ПОФИКСИЛ КАФКУ, ТЕСТЫ ЗЕЛЕНЫЕ
+![kafka_fix.png](kafka_fix.png)
+
 ## Удаляем все
 
 ```bash
