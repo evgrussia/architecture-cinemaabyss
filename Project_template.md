@@ -352,6 +352,12 @@ minikube tunnel
 https://cinemaabyss.example.com/api/movies
 и приложите скриншот развертывания helm и вывода https://cinemaabyss.example.com/api/movies
 ![zadanie_4_helm_api.png](zadanie_4_helm_api.png)
+
+СВЕЖИЕ СКРИНЫ С ПОДНЯТЫМ КЛАСТЕРОМ И КАФКОЙ
+![new_helm.png](new_helm.png)
+![new_helm_2.png](new_helm_2.png)
+![new_helm_3.png](new_helm_3.png)
+
 ## Удаляем все
 
 ```bash
