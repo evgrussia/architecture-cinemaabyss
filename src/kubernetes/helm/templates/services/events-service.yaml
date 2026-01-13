@@ -33,7 +33,7 @@ spec:
         - name: PORT
           value: "{{ .Values.eventsService.service.targetPort }}"
         - name: KAFKA_BROKERS
-          value: "kafka-0.kafka-headless.{{ .Values.global.namespace }}.svc.cluster.local:9092"
+          value: "kafka.{{ .Values.global.namespace }}.svc.cluster.local:9092"
         envFrom:
         - configMapRef:
             name: cinemaabyss-config

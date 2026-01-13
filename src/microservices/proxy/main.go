@@ -36,6 +36,17 @@ func main() {
 		_, _ = w.Write([]byte("Strangler Fig Proxy is healthy"))
 	})
 
+	// Handle movies-service health check
+	mux.HandleFunc("/api/movies/health", func(w http.ResponseWriter, r *http.Request) {
+		if moviesProxy != nil {
+			log.Printf("proxy request %s %s -> movies-service health", r.Method, r.URL.Path)
+			moviesProxy.ServeHTTP(w, r)
+		} else {
+			log.Printf("proxy request %s %s -> monolith (no movies-service)", r.Method, r.URL.Path)
+			monolithProxy.ServeHTTP(w, r)
+		}
+	})
+
 	mux.HandleFunc("/api/movies", func(w http.ResponseWriter, r *http.Request) {
 		backendName := "monolith"
 		proxy := monolithProxy

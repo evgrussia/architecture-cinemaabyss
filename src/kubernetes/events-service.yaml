@@ -30,7 +30,7 @@ spec:
         - name: PORT
           value: "8082"
         - name: KAFKA_BROKERS
-          value: "kafka-0.kafka-headless.cinemaabyss.svc.cluster.local:9092"
+          value: "kafka.cinemaabyss.svc.cluster.local:9092"
         envFrom:
         - configMapRef:
             name: cinemaabyss-config
