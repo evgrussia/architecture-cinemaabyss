@@ -1,21 +1,19 @@
-name: Docker Build and Push
+name: Build and Push Docker Images
 
 on:
-  workflow_dispatch:
   push:
-    branches: [ main ]
+    branches: [ cinema ]
     paths:
-      - 'src/**'
+      - 'src/microservices/proxy/**'
+      - 'src/microservices/events/**'
+      - 'src/monolith/**'
+      - 'src/microservices/movies/**'
       - '.github/workflows/docker-build-push.yml'
   release:
     types: [published]
 
 env:
   REGISTRY: ghcr.io
-  MONOLITH_IMAGE_NAME: ${{ github.repository }}/monolith
-  MOVIES_SERVICE_IMAGE_NAME: ${{ github.repository }}/movies-service
-  EVENTS_SERVICE_IMAGE_NAME: ${{ github.repository }}/events-service
-  PROXY_SERVICE_IMAGE_NAME: ${{ github.repository }}/proxy-service
 
 jobs:
   build-and-push:
@@ -37,49 +35,278 @@ jobs:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Debug registry info
+        run: |
+          echo "=== Registry Debug Info ==="
+          echo "Registry: ${{ env.REGISTRY }}"
+          echo "Repository: ${{ github.repository }}"
+          echo "Actor: ${{ github.actor }}"
+          echo "Full image path example: ${{ env.REGISTRY }}/${{ github.repository }}/monolith:latest"
+          echo ""
+          echo "Expected GitHub Packages URL:"
+          echo "https://github.com/${{ github.repository }}/pkgs/container"
 
-      - name: Extract metadata (tags, labels) for Monolith
+      - name: Extract metadata for monolith
         id: meta-monolith
         uses: docker/metadata-action@v4
         with:
-          images: ${{ env.REGISTRY }}/${{ env.MONOLITH_IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ github.repository }}/monolith
           tags: |
+            type=ref,event=branch
+            type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=sha,format=short
-            type=ref,event=branch
-            latest
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest
 
-      - name: Build and push Monolith Docker image
+      - name: Build and push monolith image
         uses: docker/build-push-action@v4
         with:
           context: ./src/monolith
+          file: ./src/monolith/Dockerfile
           push: true
           tags: ${{ steps.meta-monolith.outputs.tags }}
           labels: ${{ steps.meta-monolith.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+        continue-on-error: false
 
-      - name: Extract metadata (tags, labels) for Movies Service
+      - name: Extract metadata for movies-service
         id: meta-movies
         uses: docker/metadata-action@v4
         with:
-          images: ${{ env.REGISTRY }}/${{ env.MOVIES_SERVICE_IMAGE_NAME }}
+          images: ${{ env.REGISTRY }}/${{ github.repository }}/movies-service
           tags: |
+            type=ref,event=branch
+            type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=sha,format=short
-            type=ref,event=branch
-            latest
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest
 
-      - name: Build and push Movies Service Docker image
+      - name: Build and push movies-service image
         uses: docker/build-push-action@v4
         with:
           context: ./src/microservices/movies
+          file: ./src/microservices/movies/Dockerfile
           push: true
           tags: ${{ steps.meta-movies.outputs.tags }}
           labels: ${{ steps.meta-movies.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+        continue-on-error: false
 
-      
+      - name: Extract metadata for proxy-service
+        id: meta-proxy
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}/proxy-service
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest
+
+      - name: Build and push proxy-service image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./src/microservices/proxy
+          file: ./src/microservices/proxy/Dockerfile
+          push: true
+          tags: ${{ steps.meta-proxy.outputs.tags }}
+          labels: ${{ steps.meta-proxy.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+        continue-on-error: false
+
+      - name: Extract metadata for events-service
+        id: meta-events
+        uses: docker/metadata-action@v4
+        with:
+          images: ${{ env.REGISTRY }}/${{ github.repository }}/events-service
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest
+
+      - name: Build and push events-service image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./src/microservices/events
+          file: ./src/microservices/events/Dockerfile
+          push: true
+          tags: ${{ steps.meta-events.outputs.tags }}
+          labels: ${{ steps.meta-events.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+        continue-on-error: false
+
+      - name: Verify push success and list images
+        run: |
+          echo "=== Repository Information ==="
+          echo "Repository: ${{ github.repository }}"
+          echo "Registry: ${{ env.REGISTRY }}"
+          echo "Actor: ${{ github.actor }}"
+          echo ""
+          echo "=== Expected Image Paths ==="
+          echo "  ${{ env.REGISTRY }}/${{ github.repository }}/monolith:latest"
+          echo "  ${{ env.REGISTRY }}/${{ github.repository }}/movies-service:latest"
+          echo "  ${{ env.REGISTRY }}/${{ github.repository }}/proxy-service:latest"
+          echo "  ${{ env.REGISTRY }}/${{ github.repository }}/events-service:latest"
+          echo ""
+          echo "=== Generated Tags ==="
+          echo "Monolith tags: ${{ steps.meta-monolith.outputs.tags }}"
+          echo "Movies Service tags: ${{ steps.meta-movies.outputs.tags }}"
+          echo "Proxy Service tags: ${{ steps.meta-proxy.outputs.tags }}"
+          echo "Events Service tags: ${{ steps.meta-events.outputs.tags }}"
+          echo ""
+          echo "=== Verifying images in registry ==="
+          echo "Checking if images are accessible..."
+          # Try to inspect images to verify they exist
+          docker manifest inspect ${{ env.REGISTRY }}/${{ github.repository }}/monolith:latest && echo "✓ monolith:latest exists" || echo "✗ monolith:latest not found"
+          docker manifest inspect ${{ env.REGISTRY }}/${{ github.repository }}/movies-service:latest && echo "✓ movies-service:latest exists" || echo "✗ movies-service:latest not found"
+          docker manifest inspect ${{ env.REGISTRY }}/${{ github.repository }}/proxy-service:latest && echo "✓ proxy-service:latest exists" || echo "✗ proxy-service:latest not found"
+          docker manifest inspect ${{ env.REGISTRY }}/${{ github.repository }}/events-service:latest && echo "✓ events-service:latest exists" || echo "✗ events-service:latest not found"
+          echo ""
+          echo "=== GitHub Packages URLs ==="
+          echo "Check packages in your profile: https://github.com/${{ github.actor }}?tab=packages"
+          echo "Or check repository packages: https://github.com/${{ github.repository }}/pkgs/container"
+          echo ""
+          echo "=== Direct package links ==="
+          echo "https://github.com/${{ github.repository_owner }}/architecture-cinemaabyss/pkgs/container/monolith"
+          echo "https://github.com/${{ github.repository_owner }}/architecture-cinemaabyss/pkgs/container/movies-service"
+          echo "https://github.com/${{ github.repository_owner }}/architecture-cinemaabyss/pkgs/container/proxy-service"
+          echo "https://github.com/${{ github.repository_owner }}/architecture-cinemaabyss/pkgs/container/events-service"
+
+      - name: Start infrastructure services
+        run: |
+          docker compose up -d postgres zookeeper kafka
+          echo "Waiting for infrastructure services..."
+          sleep 15
+
+      - name: Start application services
+        run: |
+          docker compose up -d monolith movies-service events-service proxy-service
+          echo "Waiting for application services to start..."
+          sleep 20
+          docker compose ps
+
+      - name: Wait for services to be healthy
+        run: |
+          echo "Waiting for services to be ready..."
+          timeout=300
+          elapsed=0
+          
+          # Wait for postgres
+          echo "Waiting for PostgreSQL..."
+          while [ $elapsed -lt $timeout ]; do
+            if docker compose exec -T postgres pg_isready -U postgres 2>/dev/null; then
+              echo "PostgreSQL is ready!"
+              break
+            fi
+            sleep 2
+            elapsed=$((elapsed + 2))
+          done
+          
+          # Wait for monolith
+          echo "Waiting for Monolith..."
+          elapsed=0
+          while [ $elapsed -lt $timeout ]; do
+            if curl -f http://localhost:8080/health 2>/dev/null || curl -f http://localhost:8080/api/movies 2>/dev/null; then
+              echo "Monolith is ready!"
+              break
+            fi
+            echo "Waiting for Monolith... ($elapsed/$timeout seconds)"
+            sleep 3
+            elapsed=$((elapsed + 3))
+          done
+          
+          # Wait for movies-service
+          echo "Waiting for Movies Service..."
+          elapsed=0
+          while [ $elapsed -lt $timeout ]; do
+            if curl -f http://localhost:8081/api/movies/health 2>/dev/null || curl -f http://localhost:8081/api/movies 2>/dev/null; then
+              echo "Movies Service is ready!"
+              break
+            fi
+            echo "Waiting for Movies Service... ($elapsed/$timeout seconds)"
+            sleep 3
+            elapsed=$((elapsed + 3))
+          done
+          
+          # Wait for events-service
+          echo "Waiting for Events Service..."
+          elapsed=0
+          while [ $elapsed -lt $timeout ]; do
+            if curl -f http://localhost:8082/api/events/health 2>/dev/null; then
+              echo "Events Service is ready!"
+              break
+            fi
+            echo "Waiting for Events Service... ($elapsed/$timeout seconds)"
+            sleep 3
+            elapsed=$((elapsed + 3))
+          done
+          
+          # Wait for proxy-service
+          echo "Waiting for Proxy Service..."
+          elapsed=0
+          while [ $elapsed -lt $timeout ]; do
+            if curl -f http://localhost:8000/health 2>/dev/null || curl -f http://localhost:8000/api/movies 2>/dev/null; then
+              echo "Proxy Service is ready!"
+              break
+            fi
+            echo "Waiting for Proxy Service... ($elapsed/$timeout seconds)"
+            sleep 3
+            elapsed=$((elapsed + 3))
+          done
+          
+          # Final health check
+          echo "=== Final Health Check ==="
+          curl -f http://localhost:8080/api/movies && echo " ✓ Monolith OK" || echo " ✗ Monolith not responding"
+          curl -f http://localhost:8081/api/movies && echo " ✓ Movies Service OK" || echo " ✗ Movies Service not responding"
+          curl -f http://localhost:8082/api/events/health && echo " ✓ Events Service OK" || echo " ✗ Events Service not responding"
+          curl -f http://localhost:8000/health && echo " ✓ Proxy Service OK" || echo " ✗ Proxy Service not responding"
+          
+      - name: Show service logs if unhealthy
+        if: failure()
+        run: |
+          echo "=== Service Status ==="
+          docker compose ps
+          echo "=== Monolith Logs ==="
+          docker compose logs monolith --tail=30 || true
+          echo "=== Movies Service Logs ==="
+          docker compose logs movies-service --tail=30 || true
+          echo "=== Events Service Logs ==="
+          docker compose logs events-service --tail=30 || true
+          echo "=== Proxy Service Logs ==="
+          docker compose logs proxy-service --tail=30 || true
+
+      - name: Run API tests
+        working-directory: ./tests/postman
+        run: |
+          npm install
+          # Use local environment (localhost) instead of docker environment (hostnames)
+          # since we're running tests from GitHub Actions runner, not from inside Docker network
+          npm run test:local
+
+      - name: Show test results
+        if: always()
+        run: |
+          echo "Test execution completed"
+          echo "=== Proxy Service Logs ==="
+          docker compose logs proxy-service --tail=50 || true
+          echo "=== Events Service Logs ==="
+          docker compose logs events-service --tail=50 || true
+          echo "=== All Services Status ==="
+          docker compose ps
+
+      - name: Cleanup
+        if: always()
+        run: |
+          docker compose down -v

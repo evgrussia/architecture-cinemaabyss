@@ -1,0 +1,93 @@
+@startuml
+' C4 Container diagram for CinemaAbyss (To-Be)
+' Render with PlantUML. Uses C4-PlantUML library.
+
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+title Кинобездна — To‑Be архитектура (C4 / Container)
+
+Person(customer, "Пользователь", "Мобильный клиент / веб / Smart TV")
+System_Ext(reco, "Рекомендательная система (внешняя)", "Формирует персональные подборки")
+System_Ext(paymentProvider, "Платёжный провайдер (внешний)", "Эквайринг/платежи")
+System_Ext(loyalty, "Партнёры (лояльность/маркетплейсы)", "Промокоды, скидки, партнёрские программы")
+
+System_Boundary(cinema, "Кинобездна") {
+  Container_Boundary(k8s, "Kubernetes cluster") {
+    Container(gateway, "API Gateway / Proxy", "HTTP (REST)", "Единая точка входа для клиентов. Маршрутизация, аутентификация, rate limiting, Strangler Fig/feature flags.")
+
+    Container(auth, "Auth Service", "Go", "Регистрация/аутентификация, управление токенами.")
+    Container(user, "User Profile Service", "Go", "Профиль пользователя, устройства, настройки.")
+    Container(subscription, "Subscription Service", "Go", "Подписки, entitlements, доступ к контенту.")
+    Container(payment, "Payment Service", "Go", "Платежи и статусы транзакций.")
+    Container(discount, "Discounts/Promotions Service", "Go", "Скидки/промокоды, интеграции партнёров.")
+
+    Container(movies, "Movies (Metadata) Service", "Go", "Метаданные фильмов (жанры, актёры, рейтинги/оценки в разрезе контента).")
+    Container(video, "Video/Playback Service", "Go", "Сессии просмотра, права доступа, ссылки на источники/потоки.")
+    Container(favorites, "Favorites Service", "Go", "Избранное/подборки пользователя.")
+    Container(ratings, "Ratings Service", "Go", "Оценки/лайки пользователей.")
+    Container(recoAdapter, "Recommendations Adapter", "Go", "Адаптер интеграции с внешней рекомендательной системой.")
+
+    Container(events, "Events Service (MVP)", "Go", "Публикация и потребление доменных событий через Kafka (для дальнейшего развития событийной интеграции).")
+    ContainerQueue(kafka, "Kafka", "Message broker", "Асинхронная интеграция: доменные события, fan-out, интеграции.")
+
+    ContainerDb(userDb, "User DB", "PostgreSQL", "Данные профиля/учётных записей.")
+    ContainerDb(subDb, "Subscription DB", "PostgreSQL", "Подписки.")
+    ContainerDb(paymentDb, "Payment DB", "PostgreSQL", "Платежи.")
+    ContainerDb(discountDb, "Discount DB", "PostgreSQL", "Скидки/промо.")
+    ContainerDb(moviesDb, "Movies DB", "PostgreSQL", "Метаданные фильмов.")
+    ContainerDb(videoDb, "Video DB", "PostgreSQL", "Права/источники/сессии просмотра.")
+    ContainerDb(favDb, "Favorites DB", "PostgreSQL", "Избранное.")
+    ContainerDb(ratingsDb, "Ratings DB", "PostgreSQL", "Оценки.")
+
+    Container(storage, "Object Storage + CDN", "S3/CDN", "Хранение и доставка видео.")
+
+    Container(observability, "Observability", "Prometheus/Grafana + Loki + Jaeger", "Метрики, логи и трассировки.")
+  }
+}
+
+Rel(customer, gateway, "Использует", "HTTPS")
+
+Rel(gateway, auth, "Логин/токены", "HTTPS")
+Rel(gateway, user, "Профиль", "HTTPS")
+Rel(gateway, movies, "Каталог/метаданные", "HTTPS")
+Rel(gateway, favorites, "Избранное", "HTTPS")
+Rel(gateway, ratings, "Оценки", "HTTPS")
+Rel(gateway, subscription, "Проверка подписки", "HTTPS")
+Rel(gateway, payment, "Оплата/статусы", "HTTPS")
+Rel(gateway, video, "Старт просмотра", "HTTPS")
+Rel(gateway, recoAdapter, "Рекомендации", "HTTPS")
+
+Rel(auth, userDb, "R/W")
+Rel(user, userDb, "R/W")
+Rel(subscription, subDb, "R/W")
+Rel(payment, paymentDb, "R/W")
+Rel(discount, discountDb, "R/W")
+Rel(movies, moviesDb, "R/W")
+Rel(video, videoDb, "R/W")
+Rel(favorites, favDb, "R/W")
+Rel(ratings, ratingsDb, "R/W")
+Rel(video, storage, "Чтение/выдача потоков", "HTTPS")
+
+Rel(payment, paymentProvider, "Проводит платежи", "HTTPS")
+Rel(discount, loyalty, "Проверка/начисление скидок", "HTTPS")
+Rel(recoAdapter, reco, "Запрос подборок/сигналы", "HTTPS")
+
+' Событийная интеграция (MVP + задел на событийность)
+Rel(events, kafka, "Produce/Consume", "Kafka")
+Rel(auth, kafka, "UserRegistered", "Kafka")
+Rel(payment, kafka, "PaymentCreated/PaymentSucceeded", "Kafka")
+Rel(subscription, kafka, "SubscriptionChanged", "Kafka")
+Rel(movies, kafka, "MovieMetadataChanged", "Kafka")
+Rel(favorites, kafka, "FavoriteChanged", "Kafka")
+Rel(ratings, kafka, "RatingSet", "Kafka")
+
+Rel(gateway, observability, "Метрики/трейсы", "HTTP")
+Rel(auth, observability, "Метрики/логи/трейсы", "HTTP")
+Rel(user, observability, "Метрики/логи/трейсы", "HTTP")
+Rel(subscription, observability, "Метрики/логи/трейсы", "HTTP")
+Rel(payment, observability, "Метрики/логи/трейсы", "HTTP")
+Rel(movies, observability, "Метрики/логи/трейсы", "HTTP")
+Rel(events, observability, "Метрики/логи/трейсы", "HTTP")
+
+@enduml
